@@ -417,6 +417,7 @@
           showMessage("Expense added successfully!", "success");
           loadExpenses();
           loadStats();
+          showApp();
         } catch (error) {
           showMessage("Error adding expense: " + error.message);
         }
@@ -507,8 +508,10 @@
           document.getElementById("remainingBudget").textContent =
             stats.remainingBudget.toFixed(2);
           document.getElementById("budgetUsedPercentage").textContent =
-            stats.budgetUsedPercentage.toFixed(1);
+            stats.budgetUsedPercentage.toFixed(2);
 
+          document.getElementById("userBudget").textContent =
+            stats.remainingBudget.toFixed(2);
           // Update remaining budget color based on status
           const remainingElement =
             document.getElementById("remainingBudget").parentElement
