@@ -232,7 +232,7 @@
           // This tells the JS SDK to treat that token as the current session:
           await Parse.User.become(result.sessionToken);
 
-          const currentUser = Parse.User.current();
+          currentUser = Parse.User.current();
           console.log("Now logged in as:", currentUser);
 
           showMessage("Login successful!", "success");
