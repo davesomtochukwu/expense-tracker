@@ -503,6 +503,8 @@
         try {
           const stats = await Parse.Cloud.run("getExpenseStats");
 
+          console.log("🔥 getExpenseStats returned:", stats);
+
           document.getElementById("currentMonthTotal").textContent =
             stats.currentMonthTotal.toFixed(2);
           document.getElementById("remainingBudget").textContent =
