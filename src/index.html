@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Personal Expense Tracker</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/parse/4.2.0/parse.min.js"></script>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>💰 Personal Expense Tracker</h1>
+        <p>Track your expenses and stay within budget</p>
+      </div>
+
+      <!-- Authentication Section -->
+      <div id="authSection" class="card auth-section">
+        <div id="loginForm">
+          <h2>Login</h2>
+          <div class="form-group">
+            <label>Email</label>
+            <input
+              type="email"
+              id="loginEmail"
+              placeholder="Enter your email"
+            />
+          </div>
+          <div class="form-group">
+            <label>Password</label>
+            <input
+              type="password"
+              id="loginPassword"
+              placeholder="Enter your password"
+            />
+          </div>
+          <button class="btn" onclick="login()">Login</button>
+          <button class="btn btn-secondary" onclick="showSignup()">
+            Sign Up
+          </button>
+        </div>
+
+        <div id="signupForm" class="hidden">
+          <h2>Sign Up</h2>
+          <div class="form-group">
+            <label>Email</label>
+            <input
+              type="email"
+              id="signupEmail"
+              placeholder="Enter your email"
+            />
+          </div>
+          <div class="form-group">
+            <label>Password</label>
+            <input
+              type="password"
+              id="signupPassword"
+              placeholder="Enter your password (min 6 chars)"
+            />
+          </div>
+          <div class="form-group">
+            <label>Monthly Budget (NGN)</label>
+            <input
+              type="number"
+              id="monthlyBudget"
+              placeholder="Enter your monthly budget"
+              min="0"
+              step="0.01"
+            />
+          </div>
+          <button class="btn" onclick="signup()">Sign Up</button>
+          <button class="btn btn-secondary" onclick="showLogin()">
+            Back to Login
+          </button>
+        </div>
+      </div>
+
+      <!-- Main App Section -->
+      <div id="appSection" class="hidden">
+        <!-- User Info -->
+        <div class="user-info">
+          <div>
+            <strong id="userEmail"></strong>
+            <div>Monthly Budget: ₦<span id="userBudget">0</span></div>
+          </div>
+          <button class="btn btn-small" onclick="logout()">Logout</button>
+        </div>
+
+        <!-- Statistics -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <h3>This Month</h3>
+            <div class="value">₦<span id="currentMonthTotal">0</span></div>
+          </div>
+          <div class="stat-card">
+            <h3>Remaining Budget</h3>
+            <div class="value">₦<span id="remainingBudget">0</span></div>
+          </div>
+          <div class="stat-card">
+            <h3>Budget Used</h3>
+            <div class="value"><span id="budgetUsedPercentage">0</span>%</div>
+          </div>
+        </div>
+
+        <!-- Categories Management -->
+        <div class="card">
+          <h2>Categories</h2>
+          <div class="form-group">
+            <label>Add New Category</label>
+            <div style="display: flex; gap: 0.5rem">
+              <input
+                type="text"
+                id="newCategoryName"
+                placeholder="Category name"
+              />
+              <button class="btn btn-small" onclick="addCategory()">Add</button>
+            </div>
+          </div>
+          <div id="categoryList" class="category-list"></div>
+        </div>
+
+        <!-- Add Expense -->
+        <div class="card">
+          <h2>Add Expense</h2>
+          <div class="expense-form">
+            <div class="form-group">
+              <label>Amount (NGN)</label>
+              <input
+                type="number"
+                id="expenseAmount"
+                placeholder="0.00"
+                min="0"
+                step="0.01"
+              />
+            </div>
+            <div class="form-group">
+              <label>Category</label>
+              <select id="expenseCategory">
+                <option value="">Select category</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Date</label>
+              <input type="date" id="expenseDate" />
+            </div>
+            <div class="form-group">
+              <label>Note (Optional)</label>
+              <input
+                type="text"
+                id="expenseNote"
+                placeholder="What was this for?"
+              />
+            </div>
+            <div class="form-group">
+              <button class="btn" onclick="addExpense()">Add Expense</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Expense List -->
+        <div class="card">
+          <h2>Recent Expenses</h2>
+          <div id="expenseList" class="expense-list"></div>
+        </div>
+      </div>
+
+      <!-- Messages -->
+      <div id="messageContainer"></div>
+    </div>
+
+    <script>
+      // Initialize Parse
+      Parse.initialize(
+        "K6BAvxL9GYkhboNr5q5JuB5TYTlTemXltqCg3y9K",
+        "miqboQfJN7YhKcf34NnwqeVtikgqXHL6sYIHxjt7"
+      );
+      Parse.serverURL = "https://parseapi.back4app.com/";
+
+      let currentUser = null;
+      let categories = [];
+      let expenses = [];
+
+      // Set today's date as default
+      document.getElementById("expenseDate").valueAsDate = new Date();
+
+      // Check if user is already logged in
+      window.onload = function () {
+        currentUser = Parse.User.current();
+        if (currentUser) {
+          showApp();
+        }
+      };
+
+      function showMessage(message, type = "error") {
+        const container = document.getElementById("messageContainer");
+        const div = document.createElement("div");
+        div.className = type;
+        div.textContent = message;
+        container.appendChild(div);
+
+        setTimeout(() => {
+          div.remove();
+        }, 5000);
+      }
+
+      function showLogin() {
+        document.getElementById("loginForm").classList.remove("hidden");
+        document.getElementById("signupForm").classList.add("hidden");
+      }
+
+      function showSignup() {
+        document.getElementById("loginForm").classList.add("hidden");
+        document.getElementById("signupForm").classList.remove("hidden");
+      }
+
+      async function login() {
+        const email = document.getElementById("loginEmail").value;
+        const password = document.getElementById("loginPassword").value;
+
+        if (!email || !password) {
+          showMessage("Please enter both email and password");
+          return;
+        }
+
+        try {
+          const result = await Parse.Cloud.run("logInUser", {
+            email,
+            password,
+          });
+          console.log("Cloud result:", result);
+
+          // This tells the JS SDK to treat that token as the current session:
+          await Parse.User.become(result.sessionToken);
+
+          const currentUser = Parse.User.current();
+          console.log("Now logged in as:", currentUser);
+
+          showMessage("Login successful!", "success");
+          showApp();
+        } catch (error) {
+          showMessage("Login failed: " + error.message);
+        }
+      }
+
+      async function signup() {
+        const email = document.getElementById("signupEmail").value;
+        const password = document.getElementById("signupPassword").value;
+        const monthlyBudget =
+          parseFloat(document.getElementById("monthlyBudget").value) || 0;
+
+        if (!email || !password) {
+          showMessage("Please enter both email and password");
+          return;
+        }
+
+        try {
+          const result = await Parse.Cloud.run("signUpUser", {
+            email,
+            password,
+            monthlyBudget,
+          });
+          showMessage("Account created successfully!", "success");
+          showLogin();
+        } catch (error) {
+          showMessage("Signup failed: " + error.message);
+        }
+      }
+
+      function logout() {
+        Parse.User.logOut();
+        currentUser = null;
+        document.getElementById("authSection").classList.remove("hidden");
+        document.getElementById("appSection").classList.add("hidden");
+        showLogin();
+      }
+
+      function showApp() {
+        document.getElementById("authSection").classList.add("hidden");
+        document.getElementById("appSection").classList.remove("hidden");
+
+        // Update user info
+        document.getElementById("userEmail").textContent =
+          currentUser.get("email");
+        document.getElementById("userBudget").textContent = (
+          currentUser.get("monthlyBudget") || 0
+        ).toFixed(2);
+
+        // Load data
+        loadCategories();
+        loadExpenses();
+        loadStats();
+      }
+
+      async function loadCategories() {
+        try {
+          const query = new Parse.Query("Category");
+          query.equalTo("user", currentUser);
+          query.ascending("name");
+
+          const results = await query.find();
+          categories = results;
+
+          // Update category list display
+          const categoryList = document.getElementById("categoryList");
+          categoryList.innerHTML = "";
+
+          // Update category dropdown
+          const categorySelect = document.getElementById("expenseCategory");
+          categorySelect.innerHTML =
+            '<option value="">Select category</option>';
+
+          categories.forEach((category) => {
+            // Add to display list
+            const tag = document.createElement("div");
+            tag.className = "category-tag";
+            tag.innerHTML = `
+                        ${category.get("name")}
+                        <button class="btn btn-danger btn-small" onclick="deleteCategory('${
+                          category.id
+                        }')" style="margin-left: 0.5rem; padding: 0.2rem 0.5rem;">×</button>
+                    `;
+            categoryList.appendChild(tag);
+
+            // Add to dropdown
+            const option = document.createElement("option");
+            option.value = category.id;
+            option.textContent = category.get("name");
+            categorySelect.appendChild(option);
+          });
+        } catch (error) {
+          showMessage("Error loading categories: " + error.message);
+        }
+      }
+
+      async function addCategory() {
+        const name = document.getElementById("newCategoryName").value.trim();
+
+        if (!name) {
+          showMessage("Please enter a category name");
+          return;
+        }
+
+        try {
+          const Category = Parse.Object.extend("Category");
+          const category = new Category();
+          category.set("name", name);
+          category.set("user", currentUser);
+
+          await category.save();
+          document.getElementById("newCategoryName").value = "";
+          showMessage("Category added successfully!", "success");
+          loadCategories();
+        } catch (error) {
+          showMessage("Error adding category: " + error.message);
+        }
+      }
+
+      async function deleteCategory(categoryId) {
+        if (!confirm("Are you sure you want to delete this category?")) return;
+
+        try {
+          const query = new Parse.Query("Category");
+          const category = await query.get(categoryId);
+          await category.destroy();
+          showMessage("Category deleted successfully!", "success");
+          loadCategories();
+        } catch (error) {
+          showMessage("Error deleting category: " + error.message);
+        }
+      }
+
+      async function addExpense() {
+        const amount = parseFloat(
+          document.getElementById("expenseAmount").value
+        );
+        const categoryId = document.getElementById("expenseCategory").value;
+        const date = document.getElementById("expenseDate").value;
+        const note = document.getElementById("expenseNote").value.trim();
+
+        if (!amount || amount <= 0) {
+          showMessage("Please enter a valid amount");
+          return;
+        }
+
+        if (!date) {
+          showMessage("Please select a date");
+          return;
+        }
+
+        try {
+          const Expense = Parse.Object.extend("Expense");
+          const expense = new Expense();
+          expense.set("amount", amount);
+          expense.set("spentAt", new Date(date));
+          expense.set("currency", "NGN");
+          expense.set("user", currentUser);
+
+          if (categoryId) {
+            const category = categories.find((c) => c.id === categoryId);
+            if (category) {
+              expense.set("category", category);
+            }
+          }
+
+          if (note) {
+            expense.set("note", note);
+          }
+
+          await expense.save();
+
+          // Clear form
+          document.getElementById("expenseAmount").value = "";
+          document.getElementById("expenseCategory").value = "";
+          document.getElementById("expenseNote").value = "";
+          document.getElementById("expenseDate").valueAsDate = new Date();
+
+          showMessage("Expense added successfully!", "success");
+          loadExpenses();
+          loadStats();
+        } catch (error) {
+          showMessage("Error adding expense: " + error.message);
+        }
+      }
+
+      async function loadExpenses() {
+        try {
+          const query = new Parse.Query("Expense");
+          query.equalTo("user", currentUser);
+          query.equalTo("isDeleted", false);
+          query.include("category");
+          query.descending("spentAt");
+          query.limit(50);
+
+          const results = await query.find();
+          expenses = results;
+
+          const expenseList = document.getElementById("expenseList");
+          expenseList.innerHTML = "";
+
+          if (expenses.length === 0) {
+            expenseList.innerHTML =
+              '<div class="loading">No expenses found. Add your first expense above!</div>';
+            return;
+          }
+
+          expenses.forEach((expense) => {
+            const div = document.createElement("div");
+            div.className = "expense-item";
+
+            const category = expense.get("category");
+            const categoryName = category
+              ? category.get("name")
+              : "Uncategorized";
+            const date = expense.get("spentAt");
+            const note = expense.get("note");
+
+            div.innerHTML = `
+                        <div class="expense-details">
+                            <div class="expense-amount">₦${expense
+                              .get("amount")
+                              .toFixed(2)}</div>
+                            <div class="expense-category">${categoryName}</div>
+                            <div class="expense-date">${date.toLocaleDateString()}</div>
+                            ${
+                              note
+                                ? `<div style="font-size: 0.8rem; color: #6c757d; margin-top: 0.25rem;">${note}</div>`
+                                : ""
+                            }
+                        </div>
+                        <div class="expense-actions">
+                            <button class="btn btn-danger btn-small" onclick="deleteExpense('${
+                              expense.id
+                            }')">Delete</button>
+                        </div>
+                    `;
+
+            expenseList.appendChild(div);
+          });
+        } catch (error) {
+          showMessage("Error loading expenses: " + error.message);
+        }
+      }
+
+      async function deleteExpense(expenseId) {
+        if (!confirm("Are you sure you want to delete this expense?")) return;
+
+        try {
+          const query = new Parse.Query("Expense");
+          const expense = await query.get(expenseId);
+          expense.set("isDeleted", true);
+          await expense.save();
+
+          showMessage("Expense deleted successfully!", "success");
+          loadExpenses();
+          loadStats();
+        } catch (error) {
+          showMessage("Error deleting expense: " + error.message);
+        }
+      }
+
+      async function loadStats() {
+        try {
+          const stats = await Parse.Cloud.run("getExpenseStats");
+
+          document.getElementById("currentMonthTotal").textContent =
+            stats.currentMonthTotal.toFixed(2);
+          document.getElementById("remainingBudget").textContent =
+            stats.remainingBudget.toFixed(2);
+          document.getElementById("budgetUsedPercentage").textContent =
+            stats.budgetUsedPercentage.toFixed(1);
+
+          // Update remaining budget color based on status
+          const remainingElement =
+            document.getElementById("remainingBudget").parentElement
+              .parentElement;
+          if (stats.remainingBudget < 0) {
+            remainingElement.style.background =
+              "linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)";
+          } else if (stats.budgetUsedPercentage > 80) {
+            remainingElement.style.background =
+              "linear-gradient(135deg, #ffa726 0%, #ff7043 100%)";
+          } else {
+            remainingElement.style.background =
+              "linear-gradient(135deg, #4ecdc4 0%, #26d0ce 100%)";
+          }
+        } catch (error) {
+          console.error("Error loading stats:", error);
+        }
+      }
+    </script>
+  </body>
+</html>
